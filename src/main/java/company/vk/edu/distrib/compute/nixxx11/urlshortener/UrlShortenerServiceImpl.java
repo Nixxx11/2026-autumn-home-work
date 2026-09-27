@@ -105,7 +105,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   }
 
   private Response getLink(final Request request, final String ignored) throws IOException {
-    final String id = getId(request, "/v0/links/");
+    final String id = getId(request, LINKS_BASE_PATH);
     if (!isValidId(id)) {
       return invalidId(id);
     }
@@ -121,7 +121,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   }
 
   private Response updateLink(final Request request, final String content) throws IOException {
-    final String id = getId(request, "/v0/links/");
+    final String id = getId(request, LINKS_BASE_PATH);
     if (!isValidId(id)) {
       return invalidId(id);
     }
@@ -144,7 +144,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   }
 
   private Response deleteLink(final Request request, final String ignored) throws IOException {
-    final String id = getId(request, "/v0/links/");
+    final String id = getId(request, LINKS_BASE_PATH);
     if (!isValidId(id)) {
       return invalidId(id);
     }

@@ -24,28 +24,15 @@ public class LogWrapper implements SimpleHandler {
     }
 
     final int requestId = RANDOM.nextInt();
+    final String method = request.getRequestMethod();
+    final String path = request.getRequestURI().getPath();
     if (content.isEmpty()) {
-      LOG.info(
-          "Got request '{} {}' (id={})",
-          request.getRequestMethod(),
-          request.getRequestURI().getPath(),
-          requestId
-      );
+      LOG.info("Got request '{} {}' (id={})", method, path, requestId);
     } else {
-      LOG.info(
-          "Got request '{} {}' with body '{}' (id={})",
-          request.getRequestMethod(),
-          request.getRequestURI().getPath(),
-          content,
-          requestId
-      );
+      LOG.info("Got request '{} {}' with body '{}' (id={})", method, path, content, requestId);
     }
     final Response response = handler.handle(request, content);
-    LOG.info(
-        "Finished request with status {} (id={})",
-        response.status(),
-        requestId
-    );
+    LOG.info("Finished request with status {} (id={})", response.status(), requestId);
     return response;
   }
 }
