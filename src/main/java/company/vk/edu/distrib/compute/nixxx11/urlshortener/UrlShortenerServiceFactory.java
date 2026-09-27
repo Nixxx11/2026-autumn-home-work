@@ -3,7 +3,7 @@ package company.vk.edu.distrib.compute.nixxx11.urlshortener;
 import java.io.IOException;
 
 import company.vk.edu.distrib.compute.AbstractHttpServiceFactory;
-import company.vk.edu.distrib.compute.nixxx11.urlshortener.dao.InMemoryDao;
+import company.vk.edu.distrib.compute.nixxx11.urlshortener.dao.DiskDao;
 import company.vk.edu.distrib.compute.urlshortener.UrlShortenerService;
 import company.vk.edu.distrib.compute.urlshortener.UrlShortenerTest;
 
@@ -11,6 +11,6 @@ import company.vk.edu.distrib.compute.urlshortener.UrlShortenerTest;
 public class UrlShortenerServiceFactory extends AbstractHttpServiceFactory<UrlShortenerService> {
   @Override
   protected UrlShortenerService doCreate(final int port) throws IOException {
-    return new UrlShortenerServiceImpl(port, new InMemoryDao<>());
+    return new UrlShortenerServiceImpl(port, new DiskDao("storage"));
   }
 }
