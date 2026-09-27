@@ -1,6 +1,8 @@
 package company.vk.edu.distrib.compute.nixxx11.urlshortener;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import company.vk.edu.distrib.compute.AbstractHttpServiceFactory;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.dao.DiskDao;
@@ -11,6 +13,7 @@ import company.vk.edu.distrib.compute.urlshortener.UrlShortenerTest;
 public class UrlShortenerServiceFactory extends AbstractHttpServiceFactory<UrlShortenerService> {
   @Override
   protected UrlShortenerService doCreate(final int port) throws IOException {
-    return new UrlShortenerServiceImpl(port, new DiskDao("storage"));
+    final Path path = Files.createTempDirectory("urlshortener");
+    return new UrlShortenerServiceImpl(port, new DiskDao(path.resolve("links")));
   }
 }

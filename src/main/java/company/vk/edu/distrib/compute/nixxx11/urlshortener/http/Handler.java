@@ -5,41 +5,31 @@ import java.nio.charset.StandardCharsets;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.Request;
 
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 
-public abstract class AbstractHandler implements HttpHandler {
+public class Handler implements HttpHandler {
   private static final Response BAD_METHOD_RESPONSE = new Response.Empty(HTTP_BAD_METHOD);
   private static final Response INTERNAL_ERROR_RESPONSE = new Response.Empty(HTTP_INTERNAL_ERROR);
+  private static final SimpleHandler DEFAULT_HANDLER = (ignored1, ignored2) -> BAD_METHOD_RESPONSE;
 
-  protected Response handleGet(final Request request) throws IOException {
-    return BAD_METHOD_RESPONSE;
-  }
-
-  protected Response handlePost(final Request request, final String content) throws IOException {
-    return BAD_METHOD_RESPONSE;
-  }
-
-  protected Response handlePut(final Request request, final String content) throws IOException {
-    return BAD_METHOD_RESPONSE;
-  }
-
-  protected Response handleDelete(final Request request) throws IOException {
-    return BAD_METHOD_RESPONSE;
-  }
+  private SimpleHandler getHandler = DEFAULT_HANDLER;
+  private SimpleHandler postHandler = DEFAULT_HANDLER;
+  private SimpleHandler putHandler = DEFAULT_HANDLER;
+  private SimpleHandler deleteHandler = DEFAULT_HANDLER;
 
   @Override
   public void handle(final HttpExchange exchange) throws IOException {
     try (exchange) {
       Response response;
       try {
+        final String body = readBody(exchange);
         response = switch (exchange.getRequestMethod()) {
-          case "GET" -> handleGet(exchange);
-          case "POST" -> handlePost(exchange, readBody(exchange));
-          case "PUT" -> handlePut(exchange, readBody(exchange));
-          case "DELETE" -> handleDelete(exchange);
+          case "GET" -> getHandler.handle(exchange, body);
+          case "POST" -> postHandler.handle(exchange, body);
+          case "PUT" -> putHandler.handle(exchange, body);
+          case "DELETE" -> deleteHandler.handle(exchange, body);
           default -> BAD_METHOD_RESPONSE;
         };
       } catch (final Exception e) {
@@ -52,5 +42,25 @@ public abstract class AbstractHandler implements HttpHandler {
   private static String readBody(final HttpExchange exchange) throws IOException {
     final byte[] bytes = exchange.getRequestBody().readAllBytes();
     return new String(bytes, StandardCharsets.UTF_8);
+  }
+
+  public Handler setGetHandler(final SimpleHandler handler) {
+    getHandler = handler;
+    return this;
+  }
+
+  public Handler setPostHandler(final SimpleHandler handler) {
+    postHandler = handler;
+    return this;
+  }
+
+  public Handler setPutHandler(final SimpleHandler handler) {
+    putHandler = handler;
+    return this;
+  }
+
+  public Handler setDeleteHandler(final SimpleHandler handler) {
+    deleteHandler = handler;
+    return this;
   }
 }

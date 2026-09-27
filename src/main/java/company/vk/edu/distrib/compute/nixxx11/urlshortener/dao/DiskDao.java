@@ -12,9 +12,9 @@ import company.vk.edu.distrib.compute.Dao;
 public class DiskDao implements Dao<String> {
   private final Path path;
 
-  public DiskDao(final String path) throws IOException {
-    this.path = Path.of(path).toAbsolutePath();
-    Files.createDirectories(this.path);
+  public DiskDao(final Path path) throws IOException {
+    this.path = path;
+    Files.createDirectories(path);
   }
 
   @Override

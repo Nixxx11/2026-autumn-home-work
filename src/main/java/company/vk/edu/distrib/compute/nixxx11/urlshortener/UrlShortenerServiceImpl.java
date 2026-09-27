@@ -12,7 +12,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.Request;
 import company.vk.edu.distrib.compute.Dao;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.AbstractService;
-import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.AbstractHandler;
+import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.Handler;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.Response;
 import company.vk.edu.distrib.compute.urlshortener.UrlShortenerService;
 
@@ -59,116 +59,98 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   @Override
   protected Map<String, HttpHandler> getHandlers() {
     return Map.of(
-        "/v0/status", new StatusHandler(),
-        "/v0/links", new CreateLinksHandler(),
-        "/v0/links/", new LinksHandler(),
-        "/", new RedirectHandler()
+        "/v0/status", new Handler()
+            .setGetHandler(this::status),
+        "/v0/links", new Handler()
+            .setPostHandler(this::createLink),
+        "/v0/links/", new Handler()
+            .setGetHandler(this::getLink)
+            .setPutHandler(this::updateLink)
+            .setDeleteHandler(this::deleteLink),
+        "/", new Handler()
+            .setGetHandler(this::redirect)
     );
   }
 
-  private static final class StatusHandler extends AbstractHandler {
-    @Override
-    protected Response handleGet(final Request request) {
-      return new Response.Basic(HTTP_OK, "OK");
-    }
+  private Response status(final Request ignored1, final String ignored2) {
+    return new Response.Basic(HTTP_OK, "OK");
   }
 
-  private final class CreateLinksHandler extends AbstractHandler {
-    @Override
-    protected Response handlePost(final Request request, final String content) throws IOException {
-      if (!isValidLink(content)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
-      }
+  private Response createLink(final Request ignored, final String content) throws IOException {
+    if (!isValidLink(content)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
+    }
 
-      final String id = randomId();
+    final String id = randomId();
+    linksDao.upsert(id, content);
+
+    return new Response.Basic(HTTP_CREATED, host + '/' + id);
+  }
+
+  private Response getLink(final Request request, final String ignored) throws IOException {
+    final String id = getId(request, "/v0/links/");
+    if (!isValidId(id)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+    }
+
+    final String value;
+    try {
+      value = linksDao.get(id);
+    } catch (final NoSuchElementException e) {
+      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
+    }
+
+    return new Response.Basic(HTTP_OK, value);
+  }
+
+  private Response updateLink(final Request request, final String content) throws IOException {
+    final String id = getId(request, "/v0/links/");
+    if (!isValidId(id)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+    }
+
+    if (!isValidLink(content)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
+    }
+
+    final String value;
+    try {
+      value = linksDao.get(id);
+    } catch (final NoSuchElementException e) {
+      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
+    }
+    if (!content.equals(value)) {
       linksDao.upsert(id, content);
-
-      return new Response.Basic(HTTP_CREATED, host + '/' + id);
     }
+
+    return new Response.Empty(HTTP_OK);
   }
 
-  private final class LinksHandler extends AbstractHandler {
-    @Override
-    protected Response handleGet(final Request request) throws IOException {
-      final String id = getId(request);
-      if (!isValidId(id)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
-      }
-
-      final String value;
-      try {
-        value = linksDao.get(id);
-      } catch (final NoSuchElementException e) {
-        return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
-      }
-
-      return new Response.Basic(HTTP_OK, value);
+  private Response deleteLink(final Request request, final String ignored) throws IOException {
+    final String id = getId(request, "/v0/links/");
+    if (!isValidId(id)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
     }
 
-    @Override
-    protected Response handlePut(final Request request, final String content) throws IOException {
-      final String id = getId(request);
-      if (!isValidId(id)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
-      }
+    linksDao.delete(id);
 
-      if (!isValidLink(content)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
-      }
-
-      final String value;
-      try {
-        value = linksDao.get(id);
-      } catch (final NoSuchElementException e) {
-        return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
-      }
-      if (!content.equals(value)) {
-        linksDao.upsert(id, content);
-      }
-
-      return new Response.Empty(HTTP_OK);
-    }
-
-    @Override
-    protected Response handleDelete(final Request request) throws IOException {
-      final String id = getId(request);
-      if (!isValidId(id)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
-      }
-
-      linksDao.delete(id);
-
-      return new Response.Empty(HTTP_ACCEPTED);
-    }
-
-    private static String getId(final Request request) {
-      final String path = request.getRequestURI().getPath();
-      return path.substring("/v0/links/".length());
-    }
+    return new Response.Empty(HTTP_ACCEPTED);
   }
 
-  private final class RedirectHandler extends AbstractHandler {
-    @Override
-    protected Response handleGet(final Request request) throws IOException {
-      final String id = getId(request);
-      if (!isValidId(id)) {
-        return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
-      }
-
-      final String value;
-      try {
-        value = linksDao.get(id);
-      } catch (final NoSuchElementException e) {
-        return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
-      }
-
-      return new Response.Redirect(value);
+  private Response redirect(final Request request, final String ignored) throws IOException {
+    final String id = getId(request, "/");
+    if (!isValidId(id)) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
     }
 
-    private static String getId(final Request request) {
-      final String path = request.getRequestURI().getPath();
-      return path.substring("/".length());
+    final String value;
+    try {
+      value = linksDao.get(id);
+    } catch (final NoSuchElementException e) {
+      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
     }
+
+    return new Response.Redirect(value);
   }
 
   private String randomId() {
@@ -179,6 +161,11 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
       sb.append(c);
     }
     return sb.toString();
+  }
+
+  private static String getId(final Request request, final String basePath) {
+    final String path = request.getRequestURI().getPath();
+    return path.substring(basePath.length());
   }
 
   private static boolean isValidId(final String id) {
