@@ -2,6 +2,7 @@ package company.vk.edu.distrib.compute.nixxx11.urlshortener.http;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Function;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -61,6 +62,14 @@ public class Handler implements HttpHandler {
 
   public Handler setDeleteHandler(final SimpleHandler handler) {
     deleteHandler = handler;
+    return this;
+  }
+
+  public Handler wrap(final Function<SimpleHandler, SimpleHandler> wrapper) {
+    getHandler = wrapper.apply(getHandler);
+    postHandler = wrapper.apply(postHandler);
+    putHandler = wrapper.apply(putHandler);
+    deleteHandler = wrapper.apply(deleteHandler);
     return this;
   }
 }

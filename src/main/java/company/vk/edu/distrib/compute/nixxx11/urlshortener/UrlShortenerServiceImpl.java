@@ -13,6 +13,7 @@ import com.sun.net.httpserver.Request;
 import company.vk.edu.distrib.compute.Dao;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.AbstractService;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.Handler;
+import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.LogWrapper;
 import company.vk.edu.distrib.compute.nixxx11.urlshortener.http.Response;
 import company.vk.edu.distrib.compute.urlshortener.UrlShortenerService;
 
@@ -60,15 +61,19 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   protected Map<String, HttpHandler> getHandlers() {
     return Map.of(
         "/v0/status", new Handler()
-            .setGetHandler(this::status),
+            .setGetHandler(this::status)
+            .wrap(LogWrapper::new),
         "/v0/links", new Handler()
-            .setPostHandler(this::createLink),
+            .setPostHandler(this::createLink)
+            .wrap(LogWrapper::new),
         "/v0/links/", new Handler()
             .setGetHandler(this::getLink)
             .setPutHandler(this::updateLink)
-            .setDeleteHandler(this::deleteLink),
+            .setDeleteHandler(this::deleteLink)
+            .wrap(LogWrapper::new),
         "/", new Handler()
             .setGetHandler(this::redirect)
+            .wrap(LogWrapper::new)
     );
   }
 
