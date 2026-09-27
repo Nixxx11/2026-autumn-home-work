@@ -19,6 +19,10 @@ public class LogWrapper implements SimpleHandler {
 
   @Override
   public Response handle(final Request request, final String content) throws IOException {
+    if (!LOG.isInfoEnabled()) {
+      return handler.handle(request, content);
+    }
+
     final int requestId = RANDOM.nextInt();
     if (content.isEmpty()) {
       LOG.info(

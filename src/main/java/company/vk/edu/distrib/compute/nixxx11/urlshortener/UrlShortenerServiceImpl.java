@@ -44,6 +44,9 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
 
   private static final int HTTP_UNPROCESSABLE_CONTENT = 422;
 
+  private static final String LINKS_BASE_PATH = "/v0/links/";
+  private static final String REDIRECT_BASE_PATH = "/";
+
   private final Dao<String> linksDao;
   private final UrlShortenerAuthSystem authSystem;
   private final String host;
@@ -71,13 +74,13 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
             .setPostHandler(this::createLink)
             .wrap(authSystem::wrap)
             .wrap(LogWrapper::new),
-        "/v0/links/", new Handler()
+        LINKS_BASE_PATH, new Handler()
             .setGetHandler(this::getLink)
             .setPutHandler(this::updateLink)
             .setDeleteHandler(this::deleteLink)
             .wrap(authSystem::wrap)
             .wrap(LogWrapper::new),
-        "/", new Handler()
+        REDIRECT_BASE_PATH, new Handler()
             .setGetHandler(this::redirect)
             .wrap(LogWrapper::new),
         "/internal/users", new Handler()
@@ -92,7 +95,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
 
   private Response createLink(final Request ignored, final String content) throws IOException {
     if (!isValidLink(content)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
+      return invalidLink(content);
     }
 
     final String id = randomId();
@@ -104,14 +107,14 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   private Response getLink(final Request request, final String ignored) throws IOException {
     final String id = getId(request, "/v0/links/");
     if (!isValidId(id)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+      return invalidId(id);
     }
 
     final String value;
     try {
       value = linksDao.get(id);
     } catch (final NoSuchElementException e) {
-      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
+      return idNotFound(id);
     }
 
     return new Response.Basic(HTTP_OK, value);
@@ -120,18 +123,18 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   private Response updateLink(final Request request, final String content) throws IOException {
     final String id = getId(request, "/v0/links/");
     if (!isValidId(id)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+      return invalidId(id);
     }
 
     if (!isValidLink(content)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + content);
+      return invalidLink(content);
     }
 
     final String value;
     try {
       value = linksDao.get(id);
     } catch (final NoSuchElementException e) {
-      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
+      return idNotFound(id);
     }
     if (!content.equals(value)) {
       linksDao.upsert(id, content);
@@ -143,7 +146,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   private Response deleteLink(final Request request, final String ignored) throws IOException {
     final String id = getId(request, "/v0/links/");
     if (!isValidId(id)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+      return invalidId(id);
     }
 
     linksDao.delete(id);
@@ -154,14 +157,14 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   private Response redirect(final Request request, final String ignored) throws IOException {
     final String id = getId(request, "/");
     if (!isValidId(id)) {
-      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+      return invalidId(id);
     }
 
     final String value;
     try {
       value = linksDao.get(id);
     } catch (final NoSuchElementException e) {
-      return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
+      return idNotFound(id);
     }
 
     return new Response.Redirect(value);
@@ -206,5 +209,17 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     } catch (final URISyntaxException e) {
       return false;
     }
+  }
+
+  private static Response invalidId(final String id) {
+    return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid id: " + id);
+  }
+
+  private static Response invalidLink(final String link) {
+    return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid link: " + link);
+  }
+
+  private static Response idNotFound(final String id) {
+    return new Response.Basic(HTTP_NOT_FOUND, "Id not found: " + id);
   }
 }
