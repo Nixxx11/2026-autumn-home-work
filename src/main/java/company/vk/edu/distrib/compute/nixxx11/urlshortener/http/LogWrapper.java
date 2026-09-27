@@ -32,7 +32,8 @@ public class LogWrapper implements SimpleHandler {
       LOG.info("Got request '{} {}' with body '{}' (id={})", method, path, content, requestId);
     }
     final Response response = handler.handle(request, content);
-    LOG.info("Finished request with status {} (id={})", response.status(), requestId);
+    final int status = response.status();
+    LOG.info("Finished request with status {} (id={})", status, requestId);
     return response;
   }
 }
