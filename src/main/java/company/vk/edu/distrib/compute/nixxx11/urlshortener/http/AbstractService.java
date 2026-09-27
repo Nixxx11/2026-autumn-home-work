@@ -13,6 +13,9 @@ public abstract class AbstractService implements HttpService {
 
   public AbstractService(final int port) throws IOException {
     this.httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+  }
+
+  protected void init() {
     final Map<String, ? extends HttpHandler> handlers = getHandlers();
     handlers.forEach(httpServer::createContext);
   }

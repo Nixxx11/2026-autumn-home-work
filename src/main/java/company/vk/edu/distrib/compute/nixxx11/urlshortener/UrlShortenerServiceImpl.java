@@ -45,16 +45,20 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
   private static final int HTTP_UNPROCESSABLE_CONTENT = 422;
 
   private final Dao<String> linksDao;
+  private final UrlShortenerAuthSystem authSystem;
   private final String host;
   private final Random random = new Random();
 
   public UrlShortenerServiceImpl(
       final int port,
-      final Dao<String> linksDao
+      final Dao<String> linksDao,
+      final Dao<String> usersDao
   ) throws IOException {
     super(port);
     this.linksDao = linksDao;
+    this.authSystem = new UrlShortenerAuthSystem(usersDao);
     this.host = "http://localhost:" + port;
+    init();
   }
 
   @Override
@@ -65,14 +69,19 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
             .wrap(LogWrapper::new),
         "/v0/links", new Handler()
             .setPostHandler(this::createLink)
+            .wrap(authSystem::wrap)
             .wrap(LogWrapper::new),
         "/v0/links/", new Handler()
             .setGetHandler(this::getLink)
             .setPutHandler(this::updateLink)
             .setDeleteHandler(this::deleteLink)
+            .wrap(authSystem::wrap)
             .wrap(LogWrapper::new),
         "/", new Handler()
             .setGetHandler(this::redirect)
+            .wrap(LogWrapper::new),
+        "/internal/users", new Handler()
+            .setPostHandler(this::createUser)
             .wrap(LogWrapper::new)
     );
   }
@@ -156,6 +165,19 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     }
 
     return new Response.Redirect(value);
+  }
+
+  private Response createUser(final Request ignored, final String content) throws IOException {
+    final int i = content.indexOf(':');
+    if (i < 0) {
+      return new Response.Basic(HTTP_UNPROCESSABLE_CONTENT, "Invalid user credentials: " + content);
+    }
+
+    final String login = content.substring(0, i);
+    final String password = content.substring(i + 1);
+    authSystem.saveUser(login, password);
+
+    return new Response.Empty(HTTP_OK);
   }
 
   private String randomId() {
