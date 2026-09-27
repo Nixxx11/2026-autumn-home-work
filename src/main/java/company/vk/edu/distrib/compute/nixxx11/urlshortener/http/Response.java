@@ -1,6 +1,5 @@
 package company.vk.edu.distrib.compute.nixxx11.urlshortener.http;
 
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -9,6 +8,7 @@ import com.sun.net.httpserver.HttpHandler;
 
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 
+@SuppressWarnings("PMD.ImplicitFunctionalInterface")
 public interface Response extends HttpHandler {
   record Empty(int status) implements Response {
     @Override

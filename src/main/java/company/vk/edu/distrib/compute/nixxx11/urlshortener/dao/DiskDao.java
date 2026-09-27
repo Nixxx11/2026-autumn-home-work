@@ -38,5 +38,6 @@ public class DiskDao implements Dao<String> {
 
   @Override
   public void close() {
+    //noop
   }
 }

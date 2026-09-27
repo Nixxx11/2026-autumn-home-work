@@ -30,5 +30,6 @@ public class InMemoryDao<T> implements Dao<T> {
 
   @Override
   public void close() {
+    //noop
   }
 }

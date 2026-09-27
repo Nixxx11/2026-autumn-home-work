@@ -22,9 +22,9 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 
 public class UrlShortenerServiceImpl extends AbstractService implements UrlShortenerService {
-  private static final int HTTP_UNPROCESSABLE_CONTENT = 422;
-
   private static final String ALLOWED_ID_CHARS;
+  private static final int ID_LENGTH = 10;
+
   static {
     final StringBuilder sb = new StringBuilder();
     for (char c = 'a'; c <= 'z'; c++) {
@@ -38,8 +38,10 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     }
     ALLOWED_ID_CHARS = sb.toString();
   }
-  private static final int ID_LENGTH = 10;
+
   private static final Pattern ID_PATTERN = Pattern.compile("[" + ALLOWED_ID_CHARS + "]{" + ID_LENGTH + "}");
+
+  private static final int HTTP_UNPROCESSABLE_CONTENT = 422;
 
   private final Dao<String> linksDao;
   private final String host;
@@ -64,14 +66,14 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     );
   }
 
-  private static class StatusHandler extends AbstractHandler {
+  private static final class StatusHandler extends AbstractHandler {
     @Override
     protected Response handleGet(final Request request) {
       return new Response.Basic(HTTP_OK, "OK");
     }
   }
 
-  private class CreateLinksHandler extends AbstractHandler {
+  private final class CreateLinksHandler extends AbstractHandler {
     @Override
     protected Response handlePost(final Request request, final String content) throws IOException {
       if (!isValidLink(content)) {
@@ -85,7 +87,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     }
   }
 
-  private class LinksHandler extends AbstractHandler {
+  private final class LinksHandler extends AbstractHandler {
     @Override
     protected Response handleGet(final Request request) throws IOException {
       final String id = getId(request);
@@ -96,7 +98,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
       final String value;
       try {
         value = linksDao.get(id);
-      } catch (NoSuchElementException e) {
+      } catch (final NoSuchElementException e) {
         return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
       }
 
@@ -117,7 +119,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
       final String value;
       try {
         value = linksDao.get(id);
-      } catch (NoSuchElementException e) {
+      } catch (final NoSuchElementException e) {
         return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
       }
       if (!content.equals(value)) {
@@ -145,7 +147,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     }
   }
 
-  private class RedirectHandler extends AbstractHandler {
+  private final class RedirectHandler extends AbstractHandler {
     @Override
     protected Response handleGet(final Request request) throws IOException {
       final String id = getId(request);
@@ -156,7 +158,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
       final String value;
       try {
         value = linksDao.get(id);
-      } catch (NoSuchElementException e) {
+      } catch (final NoSuchElementException e) {
         return new Response.Basic(HTTP_NOT_FOUND, "No such id: " + id);
       }
 
@@ -187,7 +189,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     try {
       final URI uri = new URI(link);
       return uri.isAbsolute();
-    } catch (URISyntaxException e) {
+    } catch (final URISyntaxException e) {
       return false;
     }
   }
