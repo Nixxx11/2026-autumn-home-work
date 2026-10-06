@@ -11,6 +11,7 @@ import company.vk.edu.distrib.compute.Dao;
 
 import static java.net.HttpURLConnection.HTTP_ACCEPTED;
 import static java.net.HttpURLConnection.HTTP_CREATED;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 
@@ -68,13 +69,13 @@ public class RemoteDao implements Dao<String> {
     try {
       return client.send(request, HttpResponse.BodyHandlers.ofString());
     } catch (final InterruptedException e) {
-      throw new RuntimeException(e);
+      throw new IOException("Interrupted", e);
     }
   }
 
   private static IOException unexpectedCode(final HttpResponse<String> response) {
     final int statusCode = response.statusCode();
-    if (statusCode >= 500) {
+    if (statusCode >= HTTP_INTERNAL_ERROR) {
       return new IOException("Got server error: " + statusCode);
     }
     return new IOException("Got unexpected status code: " + statusCode);
