@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.apache.kafka.clients.consumer.CloseOptions;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -28,6 +30,8 @@ public class ModerationSystem {
   public static final String DEAD_LETTER_TOPIC = "links.created.dlt";
 
   public static final String MODERATED_STATUS = "OK";
+
+  private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(1);
 
   private final String bootstrapServers;
   private final String groupId;
@@ -94,10 +98,9 @@ public class ModerationSystem {
     producerExecutor.submit(() -> producer.send(new ProducerRecord<>(CREATED_TOPIC, key, value)));
   }
 
-  public void stop() {
-    consumer.wakeup();
+  public static void closeAll(final AutoCloseable... closeables) {
     RuntimeException e = null;
-    for (final AutoCloseable closeable : new AutoCloseable[]{consumerExecutor, producerExecutor, consumer, producer}) {
+    for (final AutoCloseable closeable : closeables) {
       if (closeable == null) {
         continue;
       }
@@ -113,6 +116,23 @@ public class ModerationSystem {
     }
     if (e != null) {
       throw e;
+    }
+  }
+
+  public void stop() {
+    consumer.wakeup();
+    closeAll(
+        consumerExecutor,
+        this::stopProducerExecutor,
+        () -> consumer.close(CloseOptions.timeout(SHUTDOWN_TIMEOUT)),
+        () -> producer.close(SHUTDOWN_TIMEOUT)
+    );
+  }
+
+  private void stopProducerExecutor() throws InterruptedException {
+    producerExecutor.shutdown();
+    if (!producerExecutor.awaitTermination(SHUTDOWN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+      LOG.warn("Kafka send queue did not drain before shutdown");
     }
   }
 }

@@ -126,9 +126,12 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
 
   @Override
   public void stop() {
-    super.stop();
-    if (moderationSystem != null) {
-      moderationSystem.stop();
+    try {
+      super.stop();
+    } finally {
+      if (moderationSystem != null) {
+        moderationSystem.stop();
+      }
     }
   }
 
@@ -248,7 +251,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     return ID_PATTERN.matcher(id).matches();
   }
 
-  private static boolean isValidLink(final String link) {
+  public static boolean isValidLink(final String link) {
     try {
       final URI uri = new URI(link);
       return uri.isAbsolute() && uri.getScheme() != null && ALLOWED_SCHEMAS.contains(uri.getScheme());
