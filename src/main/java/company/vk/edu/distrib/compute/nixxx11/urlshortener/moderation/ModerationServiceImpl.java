@@ -59,8 +59,9 @@ public class ModerationServiceImpl implements ModerationService {
       if (input == null) {
         throw new IllegalStateException("Banned words file not found");
       }
-      final BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-      return reader.lines().toList();
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
+        return reader.lines().toList();
+      }
     }
   }
 

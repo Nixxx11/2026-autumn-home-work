@@ -98,8 +98,9 @@ public class ModerationSystem {
     producerExecutor.submit(() -> producer.send(new ProducerRecord<>(CREATED_TOPIC, key, value)));
   }
 
+  @SuppressWarnings("PMD.CloseResource")
   public static void closeAll(final AutoCloseable... closeables) {
-    RuntimeException e = null;
+    Exception e = null;
     for (final AutoCloseable closeable : closeables) {
       if (closeable == null) {
         continue;
@@ -108,14 +109,14 @@ public class ModerationSystem {
         closeable.close();
       } catch (final Exception ex) {
         if (e == null) {
-          e = new RuntimeException(ex);
+          e = ex;
         } else {
           e.addSuppressed(ex);
         }
       }
     }
     if (e != null) {
-      throw e;
+      throw new RuntimeException(e);
     }
   }
 
