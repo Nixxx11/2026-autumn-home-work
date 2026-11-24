@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -65,7 +67,18 @@ public class ModerationServiceImpl implements ModerationService {
       while (true) {
         final ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
         for (final ConsumerRecord<String, String> record : records) {
-          final ProducerRecord<String, String> result = processRecord(record, bannedWords);
+          final String key = record.key();
+          final String value = record.value();
+
+          ProducerRecord<String, String> result;
+          try {
+            final String status = processRecord(key, value, bannedWords);
+            result = new ProducerRecord<>(MODERATED_TOPIC, key, status);
+          } catch (final RuntimeException e) {
+            LOG.error("Failed to process record with key '{}'", key, e);
+            result = new ProducerRecord<>(DEAD_LETTER_TOPIC, key, value);
+            result.headers().add("error", e.toString().getBytes(StandardCharsets.UTF_8));
+          }
           producer.send(result);
         }
       }
@@ -76,21 +89,21 @@ public class ModerationServiceImpl implements ModerationService {
     }
   }
 
-  private static ProducerRecord<String, String> processRecord(
-      final ConsumerRecord<String, String> record,
+  private static String processRecord(
+      final String key,
+      final String value,
       final List<String> bannedWords
   ) {
-    final String key = record.key();
-    final String value = record.value();
+    final String decodedValue = URLDecoder.decode(value, StandardCharsets.UTF_8);
     for (final String bannedWord : bannedWords) {
-      if (value.contains(bannedWord)) {
+      if (decodedValue.contains(bannedWord)) {
         final String message = String.format("Link %s contains banned word %s", value, bannedWord);
         LOG.info("Creating moderation issue for key '{}': {}", key, message);
-        return new ProducerRecord<>(MODERATED_TOPIC, key, message);
+        return message;
       }
     }
     LOG.debug("Successful moderation for key '{}'", key);
-    return new ProducerRecord<>(MODERATED_TOPIC, key, MODERATED_STATUS);
+    return MODERATED_STATUS;
   }
 
   @Override

@@ -25,6 +25,8 @@ public class ModerationSystem {
 
   public static final String CREATED_TOPIC = "links.created";
   public static final String MODERATED_TOPIC = "links.moderated";
+  public static final String DEAD_LETTER_TOPIC = "links.created.dlt";
+
   public static final String MODERATED_STATUS = "OK";
 
   private final String bootstrapServers;

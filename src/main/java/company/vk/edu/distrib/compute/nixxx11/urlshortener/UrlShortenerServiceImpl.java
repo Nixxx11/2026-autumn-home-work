@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
@@ -146,7 +144,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     final String id = randomId();
     linksDao.upsert(id, content);
     if (moderationSystem != null) {
-      moderationSystem.linkCreated(id, URLDecoder.decode(content, StandardCharsets.UTF_8));
+      moderationSystem.linkCreated(id, content);
     }
 
     return new Response.Basic(HTTP_CREATED, host + '/' + id);
