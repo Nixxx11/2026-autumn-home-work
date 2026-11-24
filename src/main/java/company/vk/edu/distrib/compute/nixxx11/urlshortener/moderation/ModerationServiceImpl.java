@@ -1,13 +1,11 @@
 package company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,18 +15,21 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.WakeupException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.CREATED_TOPIC;
-import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.MODERATED_STATUS;
-import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.MODERATED_TOPIC;
-import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.prepareConsumerProperties;
-import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.prepareProducerProperties;
+import static company.vk.edu.distrib.compute.nixxx11.urlshortener.moderation.ModerationSystem.*;
 
 public class ModerationServiceImpl implements ModerationService {
+  private static final Logger LOG = LoggerFactory.getLogger(ModerationServiceImpl.class);
+
   private static final String GROUP_ID = "moderation-service";
   private static final String BANNED_WORDS_FILE = "/moderation/banned_words.txt";
 
   private final String bootstrapServers;
+  private KafkaConsumer<String, String> consumer;
+  private KafkaProducer<String, String> producer;
   private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
   public ModerationServiceImpl(final String bootstrapServers) {
@@ -40,39 +41,38 @@ public class ModerationServiceImpl implements ModerationService {
     final List<String> bannedWords;
     try {
       bannedWords = readBannedWords();
-    } catch (final IOException | URISyntaxException e) {
+    } catch (final IOException e) {
       throw new RuntimeException(e);
     }
-    final Properties consumerProperties = prepareConsumerProperties(bootstrapServers, GROUP_ID);
-    final Properties producerProperties = prepareProducerProperties(bootstrapServers);
-    executorService.submit(() -> runKafkaConsumer(bannedWords, consumerProperties, producerProperties));
+    consumer = createConsumer(bootstrapServers, GROUP_ID);
+    consumer.subscribe(List.of(CREATED_TOPIC));
+    producer = createProducer(bootstrapServers);
+    executorService.submit(() -> runKafkaConsumer(bannedWords));
   }
 
-  private static List<String> readBannedWords() throws IOException, URISyntaxException {
-    final URL url = ModerationServiceImpl.class.getResource(BANNED_WORDS_FILE);
-    if (url == null) {
-      throw new IllegalStateException("Banned words file not found");
+  private static List<String> readBannedWords() throws IOException {
+    try (InputStream input = ModerationServiceImpl.class.getResourceAsStream(BANNED_WORDS_FILE)) {
+      if (input == null) {
+        throw new IllegalStateException("Banned words file not found");
+      }
+      final BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+      return reader.lines().toList();
     }
-    final Path path = Path.of(url.toURI());
-    return Files.readString(path).lines().toList();
   }
 
-  private static void runKafkaConsumer(
-      final List<String> bannedWords,
-      final Properties consumerProperties,
-      final Properties producerProperties
-  ) {
-    try (final KafkaProducer<String, String> producer = new KafkaProducer<>(producerProperties)) {
-      try (final KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProperties)) {
-        consumer.subscribe(List.of(CREATED_TOPIC));
-        while (true) {
-          final ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
-          for (final ConsumerRecord<String, String> record : records) {
-            final ProducerRecord<String, String> result = processRecord(record, bannedWords);
-            producer.send(result);
-          }
+  private void runKafkaConsumer(final List<String> bannedWords) {
+    try {
+      while (true) {
+        final ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+        for (final ConsumerRecord<String, String> record : records) {
+          final ProducerRecord<String, String> result = processRecord(record, bannedWords);
+          producer.send(result);
         }
       }
+    } catch (final WakeupException e) {
+      LOG.info("Finishing consumer loop due to WakeupException");
+    } catch (final RuntimeException e) {
+      LOG.error("Unexpected exception in consumer loop", e);
     }
   }
 
@@ -84,15 +84,35 @@ public class ModerationServiceImpl implements ModerationService {
     final String value = record.value();
     for (final String bannedWord : bannedWords) {
       if (value.contains(bannedWord)) {
-        final String message = String.format("Link %s contains banned word %s", key, bannedWord);
+        final String message = String.format("Link %s contains banned word %s", value, bannedWord);
+        LOG.info("Creating moderation issue for key '{}': {}", key, message);
         return new ProducerRecord<>(MODERATED_TOPIC, key, message);
       }
     }
+    LOG.debug("Successful moderation for key '{}'", key);
     return new ProducerRecord<>(MODERATED_TOPIC, key, MODERATED_STATUS);
   }
 
   @Override
   public void stop() {
-    executorService.shutdownNow();
+    consumer.wakeup();
+    RuntimeException e = null;
+    for (final AutoCloseable closeable : new AutoCloseable[]{executorService, consumer, producer}) {
+      if (closeable == null) {
+        continue;
+      }
+      try {
+        closeable.close();
+      } catch (final Exception ex) {
+        if (e == null) {
+          e = new RuntimeException(ex);
+        } else {
+          e.addSuppressed(ex);
+        }
+      }
+    }
+    if (e != null) {
+      throw e;
+    }
   }
 }

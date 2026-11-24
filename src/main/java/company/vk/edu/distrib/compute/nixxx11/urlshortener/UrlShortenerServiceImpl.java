@@ -1,6 +1,7 @@
 package company.vk.edu.distrib.compute.nixxx11.urlshortener;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -88,7 +89,7 @@ public class UrlShortenerServiceImpl extends AbstractService implements UrlShort
     try {
       linksDao.delete(key);
     } catch (final IOException e) {
-      throw new RuntimeException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
