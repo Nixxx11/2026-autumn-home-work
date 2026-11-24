@@ -20,6 +20,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.WakeupException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,8 +33,8 @@ public class ModerationServiceImpl implements ModerationService {
   private static final String BANNED_WORDS_FILE = "/moderation/banned_words.txt";
 
   private final String bootstrapServers;
-  private KafkaConsumer<String, String> consumer;
-  private KafkaProducer<String, String> producer;
+  private @Nullable KafkaConsumer<String, String> consumer;
+  private @Nullable KafkaProducer<String, String> producer;
   private final ExecutorService consumerExecutor = Executors.newSingleThreadExecutor();
 
   public ModerationServiceImpl(final String bootstrapServers) {
@@ -121,6 +122,9 @@ public class ModerationServiceImpl implements ModerationService {
 
   @Override
   public void stop() {
+    if (consumer == null) {
+      return;
+    }
     consumer.wakeup();
     closeAll(consumerExecutor, consumer, producer);
   }

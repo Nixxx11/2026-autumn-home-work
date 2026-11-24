@@ -19,6 +19,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +37,8 @@ public class ModerationSystem {
   private final String bootstrapServers;
   private final String groupId;
   private final Consumer<String> onModeration;
-  private KafkaConsumer<String, String> consumer;
-  private KafkaProducer<String, String> producer;
+  private @Nullable KafkaConsumer<String, String> consumer;
+  private @Nullable KafkaProducer<String, String> producer;
   private final ExecutorService consumerExecutor = Executors.newSingleThreadExecutor();
   private final ExecutorService producerExecutor = Executors.newSingleThreadExecutor();
 
@@ -102,9 +103,6 @@ public class ModerationSystem {
   public static void closeAll(final AutoCloseable... closeables) {
     Exception e = null;
     for (final AutoCloseable closeable : closeables) {
-      if (closeable == null) {
-        continue;
-      }
       try {
         closeable.close();
       } catch (final Exception ex) {
@@ -121,6 +119,9 @@ public class ModerationSystem {
   }
 
   public void stop() {
+    if (consumer == null) {
+      return;
+    }
     consumer.wakeup();
     closeAll(
         consumerExecutor,
